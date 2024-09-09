@@ -6,6 +6,9 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract MerkleAirdrop {
     IERC20 public token;
+    address public owner;
+
+    
 
     bytes32 public merkleRoot;
 
@@ -14,28 +17,44 @@ contract MerkleAirdrop {
     event AirdropClaimed(address indexed claimant, uint256 amount);
 
     constructor(address _token, bytes32 _merkleRoot) {
-        token = IERC20(_token);
+        token = IERC20(_token); //token address (token of your choice)
         merkleRoot = _merkleRoot;
+        owner = payable(msg.sender);
     }
 
     function claimAirdrop(
         uint256 amount,
-        bytes32[] calldata merkleProof,
-        address _address  //setting _address if the user inputs an address. if he/she dosent and uses metamask to connect , it's better to use   msg.sender
+        bytes32[] calldata merkleProof
+      //setting  _address if the user inputs an address. if he/she dosent and uses metamask to connect , it's better to use   msg.sender
     ) external {
         
-        require(!hasClaimed[_address], "Airdrop already claimed.");
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_address, amount))));
+        require(!hasClaimed[msg.sender], "Airdrop already claimed.");
+        
+
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, amount))));
+
+        /**
+         * WHAT'S HAPPENING IN THE ABOVE LINE
+         *
+         * -encode the data (address and token amount), into 2 different arrays of bytes
+            -finds the hash of those 2 arrays of bytes, it's a 32 bytes result
+            -the concat finds the round up of the(not really important there, but it helps if there's additional data that needs to be added to the hash)
+            -the whole thing is now hashed again one more time
+
+            -the total hash is now assigned to the variable "leaf" which is of the type bytes
+         */
+
+        
 
         require(
             MerkleProof.verify(merkleProof, merkleRoot, leaf),
             "Invalid Merkle proof."
         );
 
-        hasClaimed[_address] = true;
+        hasClaimed[msg.sender] = true;
 
-        require(token.transfer(_address, amount), "Token transfer failed.");
+        require(token.transfer(msg.sender, amount), "Token transfer failed.");
 
-        emit AirdropClaimed(_address, amount);
+        emit AirdropClaimed(msg.sender, amount);
     }
 }
